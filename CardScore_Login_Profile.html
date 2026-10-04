@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ace Scorer - Premium Card Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;600;700&display=swap');
+        
+        :root {
+            --primary: #2563eb;
+            --secondary: #64748b;
+            --success: #10b981;
+            --danger: #ef4444;
+            --gold: #f59e0b;
+        }
+
+        body { 
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            font-family: 'Hind Siliguri', sans-serif; 
+            min-height: 100vh;
+            color: #1e293b;
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            border-radius: 24px;
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.05);
+        }
+
+        .playing-card-shape {
+            position: absolute;
+            opacity: 0.04;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .score-card {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .active-win { 
+            background: var(--success) !important; 
+            color: white !important; 
+            box-shadow: 0 10px 20px -5px rgba(16, 185, 129, 0.4);
+            border-color: #059669 !important;
+        }
+
+        .active-loss { 
+            background: var(--danger) !important; 
+            color: white !important; 
+            box-shadow: 0 10px 20px -5px rgba(239, 68, 68, 0.4);
+            border-color: #dc2626 !important;
+        }
+
+        .winner-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(10px);
+            align-items: center;
+            justify-content: center;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(5deg); }
+        }
+
+        .history-table th { 
+            font-size: 12px; 
+            font-weight: 800;
+            color: #64748b; 
+            padding: 16px; 
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Login and profile */
+        .auth-screen { position:fixed; inset:0; z-index:3000; display:flex; align-items:center; justify-content:center; padding:20px; background:linear-gradient(135deg,#0f172a,#1e3a8a 55%,#0f172a); }
+        .auth-card { width:min(100%,440px); background:rgba(255,255,255,.97); border-radius:28px; padding:30px; box-shadow:0 30px 90px rgba(0,0,0,.28); }
+        .auth-input { width:100%; padding:13px 15px; border:1px solid #cbd5e1; border-radius:13px; outline:none; background:white; }
+        .auth-input:focus { border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,.12); }
+        .profile-overlay { display:none; position:fixed; inset:0; z-index:2500; background:rgba(15,23,42,.65); backdrop-filter:blur(7px); align-items:center; justify-content:center; padding:16px; }
+        .profile-card { width:min(100%,520px); max-height:90vh; overflow:auto; background:#fff; border-radius:26px; padding:26px; box-shadow:0 25px 80px rgba(0,0,0,.25); }
+        .avatar { width:72px; height:72px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#2563eb,#7c3aed); color:#fff; font-size:27px; font-weight:800; flex-shrink:0; }
+        .account-btn { display:flex; align-items:center; gap:9px; padding:8px 12px; border:1px solid #e2e8f0; background:rgba(255,255,255,.8); border-radius:14px; font-weight:700; color:#334155; }
+        @media(max-width:480px){ .auth-card{padding:23px}.profile-card{padding:20px}.account-label{display:none} }
+
+    </style>
+</head>
+<body class="p-4 md:p-10">
+
+
+    <!-- Local demo login: profile data is saved in this browser only -->
+    <section id="auth-screen" class="auth-screen">
+        <div class="auth-card">
+            <div class="w-16 h-16 rounded-2xl bg-blue-600 text-white flex items-center justify-center text-3xl mx-auto mb-5 shadow-lg shadow-blue-200"><i class="fas fa-spade"></i></div>
+            <div class="text-center mb-7">
+                <h2 class="text-3xl font-black tracking-tight">CARD <span class="text-blue-600">MASTER</span></h2>
+                <p class="text-slate-500 mt-2">আপনার স্কোরিং স্পেসে স্বাগতম</p>
+            </div>
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-bold text-slate-600 mb-2">আপনার নাম</label>
+                    <input id="login-name" class="auth-input" type="text" placeholder="নাম লিখুন" autocomplete="name">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-600 mb-2">ইমেইল</label>
+                    <input id="login-email" class="auth-input" type="email" placeholder="name@example.com" required autocomplete="email">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-600 mb-2">পাসওয়ার্ড</label>
+                    <input id="login-password" class="auth-input" type="password" placeholder="কমপক্ষে ৪ অক্ষর" minlength="4" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-black shadow-lg shadow-blue-200 transition">প্রবেশ করুন <i class="fas fa-arrow-right ml-2"></i></button>
+            </form>
+            <p id="auth-message" class="text-xs text-center text-slate-500 mt-5 leading-relaxed">এটি একটি ব্রাউজারভিত্তিক ডেমো লগইন। আপনার প্রোফাইল এই ডিভাইসের ব্রাউজারে সংরক্ষিত হবে; এটি বাস্তব সার্ভার-ভিত্তিক নিরাপদ অ্যাকাউন্ট নয়।</p>
+        </div>
+    </section>
+
+    <!-- Profile page -->
+    <section id="profile-overlay" class="profile-overlay">
+        <div class="profile-card">
+            <div class="flex items-center justify-between mb-6">
+                <div><p class="text-xs uppercase tracking-widest font-black text-blue-600">Your account</p><h2 class="text-2xl font-black">প্রোফাইল</h2></div>
+                <button onclick="closeProfile()" class="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200" aria-label="Close profile"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 mb-6">
+                <div id="profile-avatar" class="avatar">B</div>
+                <div class="min-w-0"><p id="profile-display-name" class="font-black text-xl truncate">Bayezid</p><p id="profile-display-email" class="text-sm text-slate-500 truncate"></p><span class="inline-block mt-1 text-xs font-bold text-emerald-600"><i class="fas fa-circle text-[7px] mr-1"></i> এই ডিভাইসে সাইন ইন</span></div>
+            </div>
+            <form id="profile-form" class="space-y-4">
+                <div><label class="block text-sm font-bold text-slate-600 mb-2">নাম</label><input id="profile-name" class="auth-input" type="text" required maxlength="40"></div>
+                <div><label class="block text-sm font-bold text-slate-600 mb-2">ইমেইল</label><input id="profile-email" class="auth-input" type="email" required></div>
+                <div><label class="block text-sm font-bold text-slate-600 mb-2">নিজের সম্পর্কে</label><textarea id="profile-bio" class="auth-input" rows="3" maxlength="160" placeholder="কিছু লিখুন..."></textarea></div>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold">পরিবর্তন সংরক্ষণ করুন</button>
+            </form>
+            <button onclick="logout()" class="w-full mt-3 py-3 rounded-xl border border-rose-200 text-rose-600 font-bold hover:bg-rose-50"><i class="fas fa-sign-out-alt mr-2"></i>লগ আউট</button>
+            <p class="text-[11px] text-slate-400 mt-4 leading-relaxed">নোট: এই সংস্করণে লগইন তথ্য কোনো সার্ভারে যাচাই হয় না। অন্য ডিভাইসে একই প্রোফাইল পাওয়া যাবে না। বাস্তব authentication-এর জন্য backend/Firebase/Supabase প্রয়োজন।</p>
+        </div>
+    </section>
+
+    <!-- Decorative Card Shapes -->
+    <i class="fas fa-heart playing-card-shape text-[20rem] -top-20 -left-20 text-red-600" style="animation: float 8s infinite"></i>
+    <i class="fas fa-spade playing-card-shape text-[15rem] top-1/2 -right-20 text-slate-900" style="animation: float 6s infinite reverse"></i>
+
+    <!-- Winner Modal -->
+    <div id="winner-modal" class="winner-modal">
+        <div class="glass-panel p-10 text-center max-w-sm border-2 border-amber-400">
+            <div class="text-6xl mb-4">👑</div>
+            <h2 class="text-3xl font-black mb-2">গেম বিজয়ী!</h2>
+            <p id="winner-name" class="text-2xl font-bold text-blue-600 mb-8"></p>
+            <button onclick="location.reload()" class="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold hover:bg-black transition">রিস্টার্ট গেম</button>
+        </div>
+    </div>
+
+    <div class="max-w-5xl mx-auto relative z-10">
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-10">
+            <div>
+                <h1 class="text-3xl font-black tracking-tighter">CARD <span class="text-blue-600">MASTER</span></h1>
+                <p class="text-slate-500 text-xs font-bold uppercase tracking-widest">Winning Target: 50 Points</p>
+            </div>
+            <div class="flex gap-2 items-center">
+                <button onclick="openProfile()" class="account-btn" aria-label="Open profile">
+                    <span id="header-avatar" class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-black">B</span>
+                    <span class="account-label text-sm">প্রোফাইল</span>
+                </button>
+                <div class="hidden sm:flex gap-3">
+                    <div class="w-12 h-12 glass-panel flex items-center justify-center text-rose-500 shadow-sm"><i class="fas fa-heart text-xl"></i></div>
+                    <div class="w-12 h-12 glass-panel flex items-center justify-center text-slate-800 shadow-sm"><i class="fas fa-spade text-xl"></i></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Setup -->
+        <div id="setup-section" class="glass-panel p-10 text-center max-w-md mx-auto">
+            <div class="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                <i class="fas fa-users text-blue-600 text-3xl"></i>
+            </div>
+            <h3 class="text-xl font-bold mb-6">প্লেয়ার মোড নির্বাচন করুন</h3>
+            <select id="player-mode" class="w-full p-4 mb-6 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold appearance-none text-center">
+                <option value="2">২ পক্ষ (টিম বনাম টিম)</option>
+                <option value="4">৪ পক্ষ (ব্যক্তিগত)</option>
+            </select>
+            <button onclick="startGame()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all">শুরু করুন</button>
+        </div>
+
+        <!-- Game Interface -->
+        <div id="game-area" class="hidden space-y-8">
+            <!-- Names Configuration -->
+            <div id="names-grid" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
+
+            <!-- Dashboard -->
+            <div id="score-dashboard" class="grid grid-cols-2 md:grid-cols-4 gap-5"></div>
+
+            <!-- Entry Panel -->
+            <div class="glass-panel p-6 md:p-10 border-t-4 border-blue-600">
+                <div class="flex items-center justify-between mb-8">
+                    <h2 class="text-xl font-black"><i class="fas fa-edit mr-2 text-blue-500"></i>স্কোর ইনপুট</h2>
+                    <span id="round-indicator" class="text-xs font-black bg-slate-900 text-white px-4 py-1 rounded-full">ROUND 1</span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                    <div class="space-y-2">
+                        <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider ml-1">বিডার</label>
+                        <select id="bidder-select" onchange="updateLabels()" class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none font-bold"></select>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider ml-1">বিড পয়েন্ট</label>
+                        <select id="bid-type" onchange="updateOppTarget()" class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none font-bold">
+                            <option value="7">৭ পয়েন্ট</option>
+                            <option value="8">৮ পয়েন্ট</option>
+                            <option value="13">১৩ পয়েন্ট (Golden)</option>
+                        </select>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider ml-1">বিপক্ষ টার্গেট</label>
+                        <div id="opp-target-box" class="p-4 bg-slate-100 text-slate-700 font-black rounded-2xl text-center border-2 border-dashed border-slate-300">৪ পয়েন্ট</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+                    <div class="space-y-4">
+                        <p id="bidder-label" class="font-bold text-slate-600 text-sm"><i class="fas fa-crown text-amber-500 mr-1"></i> বিডার পক্ষ</p>
+                        <div class="flex gap-4">
+                            <button onclick="setResult('bidder', true)" id="b-win" class="flex-1 py-4 rounded-2xl bg-white border border-slate-200 text-emerald-600 font-bold hover:bg-emerald-50 transition">সফল</button>
+                            <button onclick="setResult('bidder', false)" id="b-loss" class="flex-1 py-4 rounded-2xl bg-white border border-slate-200 text-rose-600 font-bold hover:bg-rose-50 transition">অসফল</button>
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <p id="opponent-label" class="font-bold text-slate-600 text-sm"><i class="fas fa-shield-alt text-blue-500 mr-1"></i> বিপক্ষ</p>
+                        <div class="flex gap-4">
+                            <button onclick="setResult('opponent', true)" id="o-win" class="flex-1 py-4 rounded-2xl bg-white border border-slate-200 text-emerald-600 font-bold hover:bg-emerald-50 transition">সফল</button>
+                            <button onclick="setResult('opponent', false)" id="o-loss" class="flex-1 py-4 rounded-2xl bg-white border border-slate-200 text-rose-600 font-bold hover:bg-rose-50 transition">অসফল</button>
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="submitScores()" class="w-full mt-12 bg-slate-900 text-white py-5 rounded-2xl font-black text-lg hover:shadow-2xl transition-all active:scale-[0.98]">পয়েন্ট আপডেট করুন</button>
+            </div>
+
+            <!-- History Section -->
+            <div class="glass-panel overflow-hidden">
+                <div class="p-6 bg-slate-50 border-b flex justify-between items-center">
+                    <h3 class="font-black text-slate-700 tracking-tight"><i class="fas fa-history mr-2"></i> পয়েন্ট হিস্ট্রি</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left history-table">
+                        <thead>
+                            <tr class="bg-white/50">
+                                <th class="px-6">রাউন্ড</th>
+                                <th class="px-6">বিডার তথ্য</th>
+                                <th class="px-6">ফলাফল</th>
+                                <th class="px-6 text-blue-600">মোট পয়েন্ট</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-log" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+
+        // Browser-local demo account (not server authentication).
+        const PROFILE_KEY = 'cardMasterProfile';
+        let currentProfile = null;
+
+        function initials(name) {
+            return (name || 'U').trim().split(/\s+/).slice(0,2).map(part => part.charAt(0)).join('').toUpperCase() || 'U';
+        }
+        function loadProfile() {
+            try { currentProfile = JSON.parse(localStorage.getItem(PROFILE_KEY) || 'null'); }
+            catch (e) { currentProfile = null; }
+            if (currentProfile && currentProfile.email) {
+                document.getElementById('auth-screen').style.display = 'none';
+                updateProfileUI();
+            } else {
+                document.getElementById('auth-screen').style.display = 'flex';
+            }
+        }
+        function updateProfileUI() {
+            const name = currentProfile.name || currentProfile.email.split('@')[0];
+            const mark = initials(name);
+            document.getElementById('header-avatar').textContent = mark;
+            document.getElementById('profile-avatar').textContent = mark;
+            document.getElementById('profile-display-name').textContent = name;
+            document.getElementById('profile-display-email').textContent = currentProfile.email;
+            document.getElementById('profile-name').value = name;
+            document.getElementById('profile-email').value = currentProfile.email;
+            document.getElementById('profile-bio').value = currentProfile.bio || '';
+        }
+        document.getElementById('login-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const email = document.getElementById('login-email').value.trim().toLowerCase();
+            const password = document.getElementById('login-password').value;
+            const typedName = document.getElementById('login-name').value.trim();
+            if (!email || password.length < 4) return;
+            currentProfile = { name: typedName || email.split('@')[0], email, bio: '' };
+            try { localStorage.setItem(PROFILE_KEY, JSON.stringify(currentProfile)); }
+            catch (e) { document.getElementById('auth-message').textContent = 'ব্রাউজারে ডেটা সংরক্ষণ করা যাচ্ছে না। Private mode বন্ধ করে আবার চেষ্টা করুন।'; }
+            loadProfile();
+        });
+        function openProfile() {
+            if (!currentProfile) return;
+            updateProfileUI();
+            document.getElementById('profile-overlay').style.display = 'flex';
+        }
+        function closeProfile() { document.getElementById('profile-overlay').style.display = 'none'; }
+        document.getElementById('profile-overlay').addEventListener('click', function(e) {
+            if (e.target === this) closeProfile();
+        });
+        document.getElementById('profile-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+            currentProfile = {
+                name: document.getElementById('profile-name').value.trim(),
+                email: document.getElementById('profile-email').value.trim().toLowerCase(),
+                bio: document.getElementById('profile-bio').value.trim()
+            };
+            try { localStorage.setItem(PROFILE_KEY, JSON.stringify(currentProfile)); }
+            catch (e) { alert('প্রোফাইল সংরক্ষণ করা যায়নি।'); return; }
+            updateProfileUI();
+            closeProfile();
+            alert('প্রোফাইল আপডেট হয়েছে!');
+        });
+        function logout() {
+            currentProfile = null;
+            try { localStorage.removeItem(PROFILE_KEY); } catch (e) {}
+            closeProfile();
+            document.getElementById('login-password').value = '';
+            document.getElementById('auth-screen').style.display = 'flex';
+        }
+        loadProfile();
+
+        let mode = 2;
+        let teams = [];
+        let roundNo = 1;
+        let bSuccess = null;
+        let oSuccess = null;
+
+        function startGame() {
+            mode = parseInt(document.getElementById('player-mode').value);
+            document.getElementById('setup-section').classList.add('hidden');
+            document.getElementById('game-area').classList.remove('hidden');
+            initTeams();
+        }
+
+        function initTeams() {
+            const grid = document.getElementById('names-grid');
+            grid.innerHTML = '';
+            for (let i = 0; i < mode; i++) {
+                let name = mode == 2 ? `Team ${String.fromCharCode(65+i)}` : `Player ${i+1}`;
+                teams.push({ id: i, name: name, score: 0 });
+                grid.innerHTML += `<input type="text" value="${name}" oninput="updateName(${i}, this.value)" class="p-3 bg-white border border-slate-200 rounded-xl text-center font-bold outline-none focus:ring-2 focus:ring-blue-400 text-sm shadow-sm">`;
+            }
+            refresh();
+        }
+
+        function updateName(id, val) { teams[id].name = val; refresh(); }
+
+        function refresh() {
+            const dashboard = document.getElementById('score-dashboard');
+            const select = document.getElementById('bidder-select');
+            const currentSelect = select.value;
+            dashboard.innerHTML = ''; select.innerHTML = '';
+
+            teams.forEach(t => {
+                const isWarning = t.score >= 40;
+                dashboard.innerHTML += `
+                    <div class="glass-panel p-6 text-center score-card ${isWarning ? 'border-amber-400 bg-amber-50' : ''}">
+                        <div class="absolute -top-1 -right-1 opacity-5 text-4xl">
+                            ${t.id % 2 === 0 ? '<i class="fas fa-diamond"></i>' : '<i class="fas fa-club"></i>'}
+                        </div>
+                        <p class="text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">${t.name}</p>
+                        <p class="text-4xl font-black ${isWarning ? 'text-amber-600' : 'text-slate-800'}">${t.score}</p>
+                    </div>`;
+                select.innerHTML += `<option value="${t.id}" ${currentSelect == t.id ? 'selected' : ''}>${t.name}</option>`;
+            });
+            updateLabels();
+            checkWinner();
+        }
+
+        function updateOppTarget() {
+            const val = document.getElementById('bid-type').value;
+            document.getElementById('opp-target-box').innerText = (val == '13') ? '০ পয়েন্ট' : '৪ পয়েন্ট';
+        }
+
+        function updateLabels() {
+            const bidder = teams[document.getElementById('bidder-select').value];
+            document.getElementById('bidder-label').innerHTML = `<i class="fas fa-crown text-amber-500 mr-1"></i> ${bidder.name} (বিডার)`;
+        }
+
+        function setResult(side, status) {
+            if(side === 'bidder') {
+                bSuccess = status;
+                document.getElementById('b-win').className = status ? 'flex-1 py-4 rounded-2xl active-win font-bold' : 'flex-1 py-4 rounded-2xl bg-white border border-slate-200 text-emerald-600 font-bold';
+                document.getElementById('b-loss').className = !status ? 'flex-1 py-4 rounded-2xl active-loss font-bold' : 'flex-1 py-4 rounded-2xl bg-white border border-slate-200 text-rose-600 font-bold';
+            } else {
+                oSuccess = status;
+                document.getElementById('o-win').className = status ? 'flex-1 py-4 rounded-2xl active-win font-bold' : 'flex-1 py-4 rounded-2xl bg-white border border-slate-200 text-emerald-600 font-bold';
+                document.getElementById('o-loss').className = !status ? 'flex-1 py-4 rounded-2xl active-loss font-bold' : 'flex-1 py-4 rounded-2xl bg-white border border-slate-200 text-rose-600 font-bold';
+            }
+        }
+
+        function submitScores() {
+            if (bSuccess === null || oSuccess === null) return alert("উভয় পক্ষের রেজাল্ট সিলেক্ট করুন!");
+
+            const bidderId = parseInt(document.getElementById('bidder-select').value);
+            const bidVal = parseInt(document.getElementById('bid-type').value);
+            const isGolden = bidVal === 13;
+            const oppVal = isGolden ? 0 : 4;
+
+            let bPt = isGolden ? (bSuccess ? 13 : -10) : (bSuccess ? bidVal : -bidVal);
+            let oPt = isGolden ? (bSuccess ? 0 : 4) : (oSuccess ? oppVal : -oppVal);
+
+            teams[bidderId].score += bPt;
+            teams.forEach((t, i) => { if(i !== bidderId) t.score += oPt; });
+
+            addHistory(teams[bidderId].name, bidVal, bPt, oPt);
+            
+            bSuccess = null; oSuccess = null;
+            roundNo++;
+            document.getElementById('round-indicator').innerText = `ROUND ${roundNo}`;
+            document.querySelectorAll('.active-win, .active-loss').forEach(b => {
+                b.className = "flex-1 py-4 rounded-2xl bg-white border border-slate-200 font-bold text-slate-400";
+            });
+            refresh();
+        }
+
+        function addHistory(bName, bVal, bPt, oPt) {
+            const log = document.getElementById('history-log');
+            const pointsList = teams.map(t => `<div class="flex justify-between py-1 border-b border-slate-50 last:border-0"><span>${t.name}</span><span class="font-black">${t.score}</span></div>`).join('');
+            
+            const row = `
+                <tr class="hover:bg-slate-50 transition">
+                    <td class="px-6 py-6 font-bold text-slate-400 text-xs tracking-widest">#${roundNo}</td>
+                    <td class="px-6 py-6">
+                        <span class="font-bold text-slate-700">${bName}</span>
+                        <div class="text-[9px] font-black text-blue-600 uppercase">বিড: ${bVal}</div>
+                    </td>
+                    <td class="px-6 py-6">
+                        <div class="${bPt>=0?'text-emerald-600':'text-rose-600'} font-black text-xs">বিডার: ${bPt>=0?'+'+bPt:bPt}</div>
+                        <div class="${oPt>=0?'text-emerald-600':'text-rose-600'} text-[10px] font-bold opacity-70">বিপক্ষ: ${oPt>=0?'+'+oPt:oPt}</div>
+                    </td>
+                    <td class="px-6 py-6 bg-blue-50/30 text-[10px] min-w-[120px]">${pointsList}</td>
+                </tr>`;
+            log.innerHTML = row + log.innerHTML;
+        }
+
+        function checkWinner() {
+            const winner = teams.find(t => t.score >= 50);
+            if (winner) {
+                document.getElementById('winner-name').innerText = winner.name + " জিতেছে!";
+                document.getElementById('winner-modal').style.display = 'flex';
+            }
+        }
+    </script>
+</body>
+</html>
